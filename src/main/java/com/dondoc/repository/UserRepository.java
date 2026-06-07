@@ -5,8 +5,10 @@ import com.dondoc.entity.User;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import javax.swing.text.html.Option;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class UserRepository {
@@ -27,11 +29,33 @@ public class UserRepository {
                 rs.getInt("age"),
                 rs.getInt("current_pig_level"),
                 rs.getInt("current_house_level"),
+                rs.getInt("current_character_level"),
                 rs.getLong("monthly_income"),
                 rs.getInt("target_expense_ratio"),
                 rs.getObject("created_at", LocalDateTime.class)
         ));
     }
+
+    // 1인 유저 한 명만 조회
+    public Optional<User> findById(Long id){
+        String sql = "SELECT * FROM users WHERE id = ?";
+        List<User> results = jdbcTemplate.query(sql, (rs, rowNum) -> new User(
+                rs.getLong("id"),
+                rs.getString("user_id"),
+                rs.getString("user_password"),
+                rs.getString("name"),
+                rs.getInt("age"),
+                rs.getInt("current_pig_level"),
+                rs.getInt("current_house_level"),
+                rs.getInt("current_character_level"),
+                rs.getLong("monthly_income"),
+                rs.getInt("target_expense_ratio"),
+                rs.getObject("created_at", LocalDateTime.class)
+
+        ), id);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
 
     public void save(User user){
         String sql = "INSERT INTO users (user_id, user_password, name, age, current_pig_level, current_house_level, monthly_income, target_expense_ratio, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
