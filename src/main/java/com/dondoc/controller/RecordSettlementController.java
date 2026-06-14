@@ -1,7 +1,7 @@
 package com.dondoc.controller;
 
 import com.dondoc.dto.ApiResponse;
-import com.dondoc.dto.settlement.MonthlySettlementResponse;
+import com.dondoc.dto.Records.MonthlySettlementResponse;
 import com.dondoc.service.RecordSettlementService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;

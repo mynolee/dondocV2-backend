@@ -1,8 +1,8 @@
 package com.dondoc.service;
 
-import com.dondoc.dto.settlement.MonthlySettlementResponse;
-import com.dondoc.dto.settlement.SettlementCategory;
-import com.dondoc.dto.settlement.SettlementCategoryExpense;
+import com.dondoc.dto.Records.MonthlySettlementResponse;
+import com.dondoc.dto.Records.SettlementCategory;
+import com.dondoc.dto.Records.SettlementCategoryExpense;
 import com.dondoc.entity.User;
 import com.dondoc.exception.ApiException;
 import com.dondoc.repository.MonthlyHistoryRepository;
