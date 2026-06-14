@@ -40,6 +40,6 @@ public class RecordSettlementController {
             @RequestParam(value = "month", required = false) String month
     ) {
         MonthlySettlementResponse response = recordSettlementService.getMonthlySettlement(userId, month);
-        return ApiResponse.success(response, "월간 결산 통계 조회 성공");
+        return ApiResponse.ok(response, "월간 결산 통계 조회 성공");
     }
 }
