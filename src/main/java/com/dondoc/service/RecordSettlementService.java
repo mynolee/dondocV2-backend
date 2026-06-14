@@ -13,6 +13,7 @@ import com.dondoc.repository.projection.MonthlyRecordAmountSummary;
 import com.dondoc.repository.projection.MonthlySettlementHistory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
@@ -43,6 +44,7 @@ public class RecordSettlementService {
         this.monthlyHistoryRepository = monthlyHistoryRepository;
     }
 
+    @Transactional(readOnly = true)
     public MonthlySettlementResponse getMonthlySettlement(String userIdHeader, String month) {
         Long userId = parseUserId(userIdHeader);
         YearMonth targetMonth = parseMonth(month);
