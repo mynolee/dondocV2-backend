@@ -15,7 +15,7 @@ public class CategoryRepository {
     public CategoryRepository(JdbcTemplate jdbcTemplate) {this.jdbcTemplate = jdbcTemplate;}
 
     public List<Category> findAll(){
-        String sql = "SELECT * FROM categories";
+        String sql = "SELECT * FROM categories ORDER BY id";
         return jdbcTemplate.query(sql, (rs,rowNum) -> new Category(
                 rs.getLong("id"),
                 rs.getString("name"),

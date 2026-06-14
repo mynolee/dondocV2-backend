@@ -70,10 +70,10 @@ public class RecordService {
                 .collect(Collectors.toList());
     }
 
-    public List<Categories> getCategories(){
+    public List<Categories.Category> getCategories(){
         List<Category> entities = categoryRepository.findAll();
         return entities.stream()
-                .map(entity -> new Categories(
+                .map(entity -> new Categories.Category(
                         entity.getId(),
                         entity.getName(),
                         entity.getIcon(),
@@ -110,7 +110,7 @@ public class RecordService {
         monthlyHistoryRepository.save(monthlyHistory);
     }
 
-    public void createCategory(Categories dto){
+    public void createCategory(Categories.Category dto){
         Category category = new Category(
                 null, dto.getName(), dto.getIcon(),
                 dto.getType()

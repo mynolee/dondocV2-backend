@@ -29,7 +29,7 @@ public class RecordController {
     }*/
 
     @GetMapping("/categories")
-    public List<Categories> getCategories() {
+    public List<Categories.Category> getCategories() {
         return recordService.getCategories();
     }
 
@@ -44,7 +44,7 @@ public class RecordController {
     }
 
     @PostMapping("/categories")
-    public void createCategory(@RequestBody Categories category){
+    public void createCategory(@RequestBody Categories.Category category){
         recordService.createCategory(category);
     }
 
