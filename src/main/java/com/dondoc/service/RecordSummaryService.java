@@ -11,6 +11,7 @@ import com.dondoc.repository.projection.CategoryAmountSummary;
 import com.dondoc.repository.projection.MonthlyRecordTotal;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Clock;
@@ -37,6 +38,7 @@ public class RecordSummaryService {
         this.clock = clock;
     }
 
+    @Transactional(readOnly = true)
     public MonthlySummaryResponse getMonthlySummary(String userIdHeader, String month) {
         Long userId = parseUserId(userIdHeader);
         YearMonth targetMonth = parseMonth(month);
