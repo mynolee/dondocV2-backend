@@ -8,5 +8,5 @@ import lombok.Getter;
 public class MonthlyRecordTotal {
     private final Long totalIncome;
     private final Long totalExpense;
-    private final Integer transactionCount;
+    private final Long transactionCount;
 }

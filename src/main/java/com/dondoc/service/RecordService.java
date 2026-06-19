@@ -37,9 +37,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -74,12 +72,17 @@ public class RecordService {
     public Records.RecordSaveResponse createRecord(Long userId, Records.RecordSaveRequest saveRequest) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "존재하지 않는 사용자"));
-
-        Long savedId = recordRepository.save(userId, saveRequest);
-        Recorde recorde = recordRepository.findById(savedId)
-                .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "거래 추가 중 에러 발생"));
-        Category category = categoryRepository.findById(recorde.getCategoryId())
+        Category category = categoryRepository.findById(saveRequest.getCategoryId())
                 .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "카테고리 조회 중 오류 발생"));
+
+        Recorde recorde = recordRepository.save(new Recorde(
+                userId,
+                category,
+                saveRequest.getAmount(),
+                saveRequest.getDescription(),
+                saveRequest.getMemo(),
+                saveRequest.getDate()
+        ));
 
         return new Records.RecordSaveResponse(
                 recorde.getId(),
@@ -104,10 +107,11 @@ public class RecordService {
             throw new ApiException(HttpStatus.FORBIDDEN, "본인 거래가 아님");
         }
 
-        recordRepository.deleteById(recordId);
+        recordRepository.delete(record);
         return new Records.DeleteResponse(recordId);
     }
 
+    @Transactional
     public RecordUpdateResponse updateRecord(long userId, long id, RecordUpdateRequest dto) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
@@ -115,25 +119,25 @@ public class RecordService {
         Recorde existing = recordRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "존재하지 않는 거래입니다."));
 
-        if (existing.getUserId() != userId) {
+        if (!existing.getUserId().equals(userId)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "본인의 거래만 수정할 수 있습니다.");
         }
 
-        Recorde recorde = new Recorde(
-                id, existing.getUserId(), dto.getCategoryId(), dto.getAmount(),
-                dto.getDescription(), dto.getMemo(), LocalDate.parse(dto.getDate()), existing.getCreatedAt()
-        );
-        recordRepository.update(recorde);
-
-        Recorde updated = recordRepository.findById(id)
-                .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "거래 수정 후 조회에 실패했습니다."));
-        Category category = categoryRepository.findById(updated.getCategoryId())
+        Category category = categoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "카테고리 조회에 실패했습니다."));
 
+        existing.update(
+                category,
+                dto.getAmount(),
+                dto.getDescription(),
+                dto.getMemo(),
+                LocalDate.parse(dto.getDate())
+        );
+
         return new RecordUpdateResponse(
-                updated.getId(), category.getType(), updated.getRecordDate().toString(),
+                existing.getId(), category.getType(), existing.getRecordDate().toString(),
                 new Categories.CategoryInfo(category.getId(), category.getName()),
-                updated.getAmount(), updated.getDescription(), updated.getMemo()
+                existing.getAmount(), existing.getDescription(), existing.getMemo()
         );
     }
 
@@ -148,13 +152,20 @@ public class RecordService {
             throw new ApiException(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
         }
 
-        List<Records.ItemResponse> records = recordRepository.findByUserMonth(userId, yearMonth, type);
-        Records.Summary summary = recordRepository.findSummaryByUserMonth(userId, yearMonth, type);
+        YearMonth targetMonth = parseMonth(yearMonth);
+        LocalDate startDate = targetMonth.atDay(1);
+        LocalDate endDate = targetMonth.plusMonths(1).atDay(1);
+
+        List<Records.ItemResponse> records = recordRepository.findByUserMonth(userId, startDate, endDate, type).stream()
+                .map(this::toItemResponse)
+                .toList();
+        Records.Summary summary = toSummary(recordRepository.findSummaryByUserMonth(userId, startDate, endDate, type));
         return new ApiResponse<>(true, new Records.MonthlyResponse(summary, records), "거래 내역 조회 성공");
     }
 
     // ── 일별 통계 ──────────────────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public List<DailySummaryResponse> getDailySummaries(long userId, YearMonth yearMonth) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."));
@@ -163,20 +174,18 @@ public class RecordService {
         LocalDate end = yearMonth.atEndOfMonth();
 
         List<Recorde> records = recordRepository.findByDateRange(userId, start, end);
-        Map<Long, String> categoryTypeMap = categoryRepository.findAll().stream()
-                .collect(Collectors.toMap(Category::getId, Category::getType));
 
-        Map<LocalDate, long[]> summaryByDate = new HashMap<>();
+        TreeMap<LocalDate, long[]> summaryByDate = new TreeMap<>();
         for (Recorde record : records) {
             LocalDate date = record.getRecordDate();
-            String type = categoryTypeMap.get(record.getCategoryId());
+            String type = record.getCategory().getType();
             summaryByDate.putIfAbsent(date, new long[]{0L, 0L});
             if (INCOME.equals(type)) summaryByDate.get(date)[0] += record.getAmount();
             else if (EXPENSE.equals(type)) summaryByDate.get(date)[1] += record.getAmount();
         }
 
         List<DailySummaryResponse> result = new ArrayList<>();
-        new TreeMap<>(summaryByDate).forEach((date, amounts) ->
+        summaryByDate.forEach((date, amounts) ->
                 result.add(new DailySummaryResponse(date, amounts[0], amounts[1], 0)));
         return result;
     }
@@ -207,7 +216,7 @@ public class RecordService {
                 totalExpense,
                 totalIncome - totalExpense,
                 percent(totalIncome - totalExpense, totalIncome),
-                total.getTransactionCount(),
+                Math.toIntExact(total.getTransactionCount()),
                 totalExpense / targetMonth.lengthOfMonth(),
                 monthlyBudget,
                 percent(totalExpense, monthlyBudget),
@@ -276,7 +285,7 @@ public class RecordService {
     }
 
     public List<Categories.Category> getCategories() {
-        return categoryRepository.findAll().stream()
+        return categoryRepository.findAllByOrderByIdAsc().stream()
                 .map(e -> new Categories.Category(e.getId(), e.getName(), e.getIcon(), e.getType()))
                 .collect(Collectors.toList());
     }
@@ -291,6 +300,25 @@ public class RecordService {
     }
 
     // ── private helpers ────────────────────────────────────────────────────────
+
+    private Records.ItemResponse toItemResponse(Recorde record) {
+        Category category = record.getCategory();
+        return new Records.ItemResponse(
+                record.getId(),
+                category.getType().toUpperCase(),
+                record.getRecordDate().toString(),
+                new Categories.Info(category.getId(), category.getName()),
+                record.getAmount(),
+                record.getDescription(),
+                record.getMemo()
+        );
+    }
+
+    private Records.Summary toSummary(MonthlyRecordAmountSummary amountSummary) {
+        Long totalIncome = amountSummary.getTotalIncome();
+        Long totalExpense = amountSummary.getTotalExpense();
+        return new Records.Summary(totalIncome, totalExpense, totalIncome - totalExpense);
+    }
 
     private YearMonth parseMonth(String month) {
         if (!StringUtils.hasText(month)) {
